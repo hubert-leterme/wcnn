@@ -1,0 +1,21 @@
+datasets:
+  ImageNet:
+    root: ~/Images/datasets/ImageNet2012 # UPDATE HERE IF NEEDED
+    ImageNetC: # Leave blank if not needed
+    ImageNetP: # Leave blank if not needed
+  CIFAR10: ~/Images/datasets/CIFAR10 # UPDATE HERE IF NEEDED
+  MNIST: ~/Images/datasets/MNIST # UPDATE HERE IF NEEDED
+
+classifiers:
+  path_to_csv: ./ # Directory, without file name
+  path_to_classif: ./classifs
+
+external_repositories: # Append to sys.path
+  - name: Adaptive-anti-Aliasing
+    root: ~/Documents/Inputs/Adaptive-anti-Aliasing # UPDATE HERE
+    url: https://github.com/MaureenZOU/Adaptive-anti-Aliasing.git
+    commit: 909f3daf9c6df44d67657c225942e674126d7ca1 # Version used in our experiments
+
+gpu_clusters:
+  host1: ~/Documents/Experiments/classifiers # Remote path. UPDATE HERE IF NEEDED
+  host2: ~/Documents/Experiments/classifiers # Remote path. UPDATE HERE IF NEEDED
