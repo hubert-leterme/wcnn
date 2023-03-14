@@ -457,6 +457,25 @@ class Conv2d(ConvKernelMixin, nn.Conv2d):
         self._in_channels = self.in_channels
         self._out_channels = self.out_channels
 
+    @classmethod
+    def import_from_parent(cls, inp):
+
+        if not isinstance(inp, nn.Conv2d):
+            raise TypeError
+        args = [
+            inp.in_channels, inp.out_channels, inp.kernel_size
+        ]
+        kwargs = dict(
+            stride=inp.stride, padding=inp.padding, dilation=inp.dilation,
+            groups=inp.groups, padding_mode=inp.padding_mode
+        )
+        if inp.bias is None:
+            kwargs.update(bias=False)
+        out = cls(*args, **kwargs)
+        out.load_state_dict(inp.state_dict())
+
+        return out
+
 
     def get_resulting_kerstride(self):
 

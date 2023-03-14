@@ -500,7 +500,7 @@ def get_dtcwpt_filter_idx(depth):
 
     """
     dtcwpt = wpt.DtCwpt2d(
-        in_channels=1, depth=depth, stride=2**depth, wavelet='qshift_a'
+        in_channels=1, depth=depth, stride=2**depth
     )
     ker = dtcwpt.resulting_kernel
     charact = kernel_characterization(

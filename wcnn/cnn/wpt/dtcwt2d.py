@@ -86,6 +86,8 @@ class DtCwpt2d(BaseDwt2d):
     backend (str, default='dtcwt')
         One of 'pywt' or 'dtcwt'. Name of the library from which to get the
         filters.
+    trainable_qmf (bool, default=False)
+        Whether to set the QMFs as trainable parameters.
 
     Bibliography
     ------------

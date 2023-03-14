@@ -90,8 +90,8 @@ for nlayers in (18, 34, 50, 101):
 
 # List of keyword arguments to be passed as network's constructor parameters
 LIST_OF_KWARGS_NET = [
-    'config', 'wavelet', 'backend', 'padding_mode', 'pretrained_model',
-    'status_pretrained'
+    'config', 'wavelet', 'backend', 'trainable_qmf', 'padding_mode',
+    'pretrained_model', 'status_pretrained'
 ]
 
 LIST_OF_KWARGS_LOAD = ['path_to_classif', 'path_to_csv']
@@ -421,7 +421,7 @@ def load_classif(
               "You can retrieve the original conda environment with the config " + \
               "file 'condaenv.yml' at the root of the git repository."
         msg = msg.format(filename, saved_commit, script, args_script)
-        raise FileNotFoundError(msg) from exc
+        raise ClassifNotFoundError(msg) from exc
 
     # Check missing attributes (for backward compatibility)
     kwargs_check = {}
@@ -558,7 +558,10 @@ def _get_dbentry(
 ):
     # Load object reference database
     path_to_classif = set_path_classif(path_to_classif)
-    df, _ = load_db(path_to_csv)
+    try:
+        df, _ = load_db(path_to_csv)
+    except FileNotFoundError as exc:
+        raise CSVNotFoundError("CSV file not found.") from exc
     dbentry = df.loc[index_db]
     if not isinstance(dbentry, pd.core.series.Series):
         dbentry = dbentry.squeeze(axis=0) # Convert into Pandas series
@@ -621,11 +624,12 @@ def _check_consistency_and_repair(classif, exclude=None, warn=True):
             val = getattr(classif, old_attrname)
             setattr(classif, new_attrname, val)
             delattr(classif, old_attrname)
-            warnings.warn(
-                "Attribute name '{}' changed: new name = '{}', set to {}.".format(
-                    old_attrname, new_attrname, val
+            if warn:
+                warnings.warn(
+                    "Attribute name '{}' changed: new name = '{}', set to {}.".format(
+                        old_attrname, new_attrname, val
+                    )
                 )
-            )
 
     # Check attributes
     for attr_name in params:
@@ -651,12 +655,13 @@ def _check_consistency_and_repair(classif, exclude=None, warn=True):
             if old_attrval in ATTR_SUBSTITUTION[attr_name].keys():
                 new_attrval = ATTR_SUBSTITUTION[attr_name][old_attrval]
                 setattr(classif, attr_name, new_attrval)
-                warnings.warn(
-                    "Value for attribute '{}' changed: old value = {}, "
-                    "new value = {}.".format(
-                        attr_name, old_attrval, new_attrval
+                if warn:
+                    warnings.warn(
+                        "Value for attribute '{}' changed: old value = {}, "
+                        "new value = {}.".format(
+                            attr_name, old_attrval, new_attrval
+                        )
                     )
-                )
 
     # Replace attribute types
     if 'lr_scheduler_class' in classif.__dict__:
@@ -749,7 +754,7 @@ class Score:
     def __call__(self):
         return self.val
 
-    def __str__(self):
+    def __repr__(self):
 
         out = self()
         if isinstance(out, torch.Tensor):
@@ -761,3 +766,9 @@ class Score:
             out += "Commit = {}".format(self.commit)
 
         return out
+
+class ClassifNotFoundError(FileNotFoundError):
+    pass
+
+class CSVNotFoundError(FileNotFoundError):
+    pass

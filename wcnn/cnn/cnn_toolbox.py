@@ -81,19 +81,12 @@ def convolve_kernels(
         assert ker.shape[0] % groups == 0
         in_channels = ker.shape[0] # For the next kernel
 
-        # Padding
-        m, n = ker.shape[2:] # Size of the convolution kernel
-        pad = (resulting_stride[0] * (m-1), resulting_stride[1] * (n-1))
-        pad = (-(-pad[0]//2) * 2, -(-pad[1]//2) * 2) # Padding must be even
-
         # Convolution with the current kernel
         dilation0 = (
             resulting_stride[0] * dilation[0],
             resulting_stride[1] * dilation[1]
         )
-        out = F.conv2d(
-            out, ker, padding=pad, dilation=dilation0, groups=groups
-        )
+        out = _convolve(out, ker, dilation=dilation0, groups=groups)
 
         # Inflate the dilation factor for the next convolution
         resulting_stride = (
@@ -103,10 +96,38 @@ def convolve_kernels(
 
     # Convert the output (minibatch of feature maps) into a convolution kernel.
     # See 'Documents/Bibliography/Proofs/Cascading convolutions'
-    out = torch.flip(out, dims=(2, 3))
+    out = torch.flip(out, dims=(-2, -1))
     out = out.permute(1, 0, 2, 3) # Permute input and output channels
 
     return out, resulting_stride
+
+
+def _convolve(x, y, dilation=(1, 1), groups=1, do_not_switch=False):
+
+    def _get_padding(ker):
+        ker_size_with_dilation = tuple(
+            (dil * (m-1) + 1) for dil, m in zip(dilation, ker.shape[-2:])
+        )
+        # Padding must be even
+        pad = tuple(-(-m0//2) * 2 for m0 in ker_size_with_dilation)
+        return pad
+
+    size_x = x.shape[-2] * x.shape[-1]
+    size_y = y.shape[-2] * y.shape[-1]
+
+    if do_not_switch or (dilation != (1, 1)) or (groups != 1) \
+            or (size_y <= size_x):
+        pad = _get_padding(y)
+        out = F.conv2d(
+            x, y, padding=pad, dilation=dilation, groups=groups
+        )
+    else: # Switch input and convolution kernel, for computational purpose
+        pad = _get_padding(x)
+        out = F.conv2d(y, x, padding=pad)
+        out = torch.flip(out, dims=(-2, -1))
+        out = out.permute(1, 0, 2, 3) # Permute input and output channels
+
+    return out
 
 
 def get_equivalent_convkernel(func, in_channels, *args, **kwargs):

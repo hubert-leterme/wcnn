@@ -29,17 +29,27 @@ def get_error(score):
     return out
 
 
-def extract_dict(list_of_keys, inp, discard_none=False, pop=True):
-
+def extract_dict(
+        list_of_keys, inp, discard_none=False, pop=True, keep=None,
+        key_replacement=None
+):
+    if keep is None:
+        keep = []
+    if key_replacement is None:
+        key_replacement = {}
     out = {}
     for key in list_of_keys:
         if key in inp:
-            if pop:
+            if (key not in keep) and pop:
                 val = inp.pop(key)
             else:
                 val = inp.get(key)
             if not (discard_none and val is None):
-                out[key] = val
+                new_key = key_replacement.get(key)
+                if new_key is None:
+                    out[key] = val
+                else:
+                    out[new_key] = val
 
     return out
 

@@ -194,9 +194,10 @@ class SaverLoaderMixin:
 
         # In case the name has been changed
         if classif.name != id_classif:
-            msg = "The classifier's name has changed: previous name = {}; new name = {}."
-            msg = msg.format(classif.name, id_classif)
-            warnings.warn(msg)
+            if warn:
+                msg = "The classifier's name has changed: previous name = {}; new name = {}."
+                msg = msg.format(classif.name, id_classif)
+                warnings.warn(msg)
             classif.name = id_classif
 
         # For backward compatibility

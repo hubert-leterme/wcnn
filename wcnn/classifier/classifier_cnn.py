@@ -41,6 +41,8 @@ class WaveCnnClassifier(SaverLoaderMixin, PredictorMixin, TrainerMixin,
         Name of the library from which to get the wavelet filters. Can be one of
         'pywt' or 'dtcwt'. The default backend depends on the specified network
         architecture.
+    trainable_qmf (bool, default=False)
+        Whether to set the QMFs as trainable parameters.
     ds_name (str, default='ImageNet')
     split (str, default='train')
     n_train, n_val (int, default=None)
@@ -108,8 +110,8 @@ class WaveCnnClassifier(SaverLoaderMixin, PredictorMixin, TrainerMixin,
     def __init__(
             self, name=None, size=224, normalize=True, data_augmentation=True,
             metrics='top1_accuracy_score', arch=None, config=None, wavelet=None,
-            backend=None, ds_name='ImageNet', split='train', n_train=None,
-            n_val=None, pretrained_model=None, status_pretrained=None,
+            backend=None, trainable_qmf=False, ds_name='ImageNet', split='train',
+            n_train=None, n_val=None, pretrained_model=None, status_pretrained=None,
             padding_mode=None, get_gradients=False, has_l1loss=False, lambda_params=None,
             lr=0.1, lr_scheduler='StepLR30', momentum=0.9, weight_decay=1e-4,
             epochs=90, batch_size_train=256, shuffle_data=True,
@@ -126,6 +128,7 @@ class WaveCnnClassifier(SaverLoaderMixin, PredictorMixin, TrainerMixin,
         self.config = config
         self.wavelet = wavelet
         self.backend = backend
+        self.trainable_qmf = trainable_qmf
         self.ds_name = ds_name
         self.split = split
         self.n_train = n_train

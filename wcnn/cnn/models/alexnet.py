@@ -20,9 +20,12 @@ class _BaseAlexNetMixin(model_toolbox.CustomModelMixin):
 
     def _get_list_of_kwargs_net(self):
         out = [
-            'filter_size', 'antialiased_firstconv'
+            'blurfilt_size', 'antialiased_firstconv'
         ] # Only for ZhangAlexNet
         return out
+
+    def _keep_kwargs_for_structure_modifications(self):
+        return ['blurfilt_size']
 
     def _replace_last_layer(self, num_classes):
         old_fc = self.classifier[6]
@@ -32,8 +35,11 @@ class _BaseAlexNetMixin(model_toolbox.CustomModelMixin):
 class _BaseZhangAlexNet(zhangmodels.AlexNet):
 
     def __init__(
-            self, antialiased_firstconv=True, **kwargs
+            self, blurfilt_size=3, antialiased_firstconv=True,
+            **kwargs
     ):
+        if blurfilt_size is not None:
+            kwargs.update(filter_size=blurfilt_size)
         super().__init__(**kwargs)
 
         if not antialiased_firstconv:
@@ -59,8 +65,12 @@ ARGS_CONV0 = [
 
 CONFIG_DICT_STDALEXNET = {
     'Std': {},
-    'Bf3': dict(filter_size=3),
-    'Bf5': dict(filter_size=5),
+    'Bf2': dict(blurfilt_size=2),
+    'Bf3': dict(blurfilt_size=3),
+    'Bf4': dict(blurfilt_size=4),
+    'Bf5': dict(blurfilt_size=5),
+    'Bf6': dict(blurfilt_size=6),
+    'Bf7': dict(blurfilt_size=7),
     'Str4': dict(antialiased_firstconv=False),
     'Ks20': dict(kernel_size=20),
     'Frozen': dict(n_frozen_layers=1)
@@ -297,14 +307,8 @@ class _WptAlexNetMixin:
         Padding mode in the WPT layer. One of 'zeros' (default) or 'symmetric'.
 
     """
-    def __init__(self, blurfilt_size=None, **kwargs):
-        if blurfilt_size is not None:
-            # - 'blurfilt_size' is used for method 'structure_modifications';
-            # - 'filter_size' is used to initialize the parent class.
-            kwargs.update(filter_size=blurfilt_size)
-        super().__init__(
-            wpt_type='wpt2d', blurfilt_size=blurfilt_size, **kwargs
-        )
+    def __init__(self, **kwargs):
+        super().__init__(wpt_type='wpt2d', **kwargs)
 
 
 class WptAlexNet(_WptAlexNetMixin, _BaseWptAlexNet):
@@ -371,6 +375,24 @@ CONFIG_DICT_DTCWPTALEXNET.update({
     ),
     'Ft32Y': dict(
         real_part_only=True, **_KWARGS_COLORMIX, **_KWARGS
+    ),
+    'Ft32YBf2': dict(
+        real_part_only=True, blurfilt_size=2, **_KWARGS_COLORMIX, **_KWARGS
+    ),
+    'Ft32YBf3': dict(
+        real_part_only=True, blurfilt_size=3, **_KWARGS_COLORMIX, **_KWARGS
+    ),
+    'Ft32YBf4': dict(
+        real_part_only=True, blurfilt_size=4, **_KWARGS_COLORMIX, **_KWARGS
+    ),
+    'Ft32YBf5': dict(
+        real_part_only=True, blurfilt_size=5, **_KWARGS_COLORMIX, **_KWARGS
+    ),
+    'Ft32YBf6': dict(
+        real_part_only=True, blurfilt_size=6, **_KWARGS_COLORMIX, **_KWARGS
+    ),
+    'Ft32YBf7': dict(
+        real_part_only=True, blurfilt_size=7, **_KWARGS_COLORMIX, **_KWARGS
     )
 })
 
@@ -386,6 +408,30 @@ CONFIG_DICT_DTCWPTALEXNET.update({
     ),
     'Ft32Y_mod': dict(
         bias_wptblock=False, **_KWARGS_COLORMIX,
+        **_KWARGS_ACTIVATION, **_KWARGS
+    ),
+    'Ft32YBf2_mod': dict(
+        bias_wptblock=False, blurfilt_size=2, **_KWARGS_COLORMIX,
+        **_KWARGS_ACTIVATION, **_KWARGS
+    ),
+    'Ft32YBf3_mod': dict(
+        bias_wptblock=False, blurfilt_size=3, **_KWARGS_COLORMIX,
+        **_KWARGS_ACTIVATION, **_KWARGS
+    ),
+    'Ft32YBf4_mod': dict(
+        bias_wptblock=False, blurfilt_size=4, **_KWARGS_COLORMIX,
+        **_KWARGS_ACTIVATION, **_KWARGS
+    ),
+    'Ft32YBf5_mod': dict(
+        bias_wptblock=False, blurfilt_size=5, **_KWARGS_COLORMIX,
+        **_KWARGS_ACTIVATION, **_KWARGS
+    ),
+    'Ft32YBf6_mod': dict(
+        bias_wptblock=False, blurfilt_size=6, **_KWARGS_COLORMIX,
+        **_KWARGS_ACTIVATION, **_KWARGS
+    ),
+    'Ft32YBf7_mod': dict(
+        bias_wptblock=False, blurfilt_size=7, **_KWARGS_COLORMIX,
         **_KWARGS_ACTIVATION, **_KWARGS
     )
 })
@@ -423,7 +469,6 @@ class _DtCwptAlexNetMixin:
     def __init__(self, config, **kwargs):
 
         kwargs.update(**CONFIG_DICT_DTCWPTALEXNET[config])
-        model_toolbox.update_kwargs_modelconstructor(kwargs)
         super().__init__(**kwargs)
 
 

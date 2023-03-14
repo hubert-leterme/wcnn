@@ -134,7 +134,10 @@ class _ImageNetMixin(CustomDatasetMixin):
         set as specifically defined in this implementation, i.e. a subset of
         images isolated from the training set. 'test' refers to the validation
         set provided by ILSVRC2012.
-    n_imgs_per_class (int, default=100)
+    n_imgs_per_class_train (int, default=None)
+        Number of images per class in the training set. By default, all images are
+        kept.
+    n_imgs_per_class_val (int, default=100)
         Number of images per class in the validation set.
     convert_to_tensor (bool, default=False)
         USE ONLY FOR VISUALIZATION, NOT TRAINING.
@@ -146,7 +149,8 @@ class _ImageNetMixin(CustomDatasetMixin):
 
     """
     def __init__(
-        self, root=None, split='train', n_imgs_per_class=100, grayscale=False,
+        self, root=None, split='train', n_imgs_per_class_train=None,
+        n_imgs_per_class_val=100, grayscale=False,
         convert_to_tensor=False, data_folder=None, **kwargs
 ):
         if root is None:
@@ -185,24 +189,25 @@ class _ImageNetMixin(CustomDatasetMixin):
         )
 
         # The original training set is split between our custom training and
-        # validation sets. More precisely, the 100 first images of each class
-        # are set aside for the validation set whereas all the other images
-        # remain in the training set.
+        # validation sets. More precisely, the n_imgs_per_class_val first images
+        # of each class are set aside for the validation set whereas all the
+        # other images remain in the training set.
         if split in ('train', 'val'):
-            arr = np.concatenate([[-1], np.array(self.targets)])
-            first_idx = np.where(arr[1:] - arr[:-1] != 0)[0]
+            arr = np.concatenate([[-1], np.array(self.targets), [np.inf]])
+            first_idx = np.where(
+                arr[1:] - arr[:-1] != 0
+            )[0] # Includes 0 and len(self.targets)
             for attr in self.img_attrs:
                 attr_val = getattr(self, attr)
                 new_attr_val = []
-                for target, i in enumerate(first_idx):
+                for beg, end in zip(first_idx[:-1], first_idx[1:]):
                     if split == 'train':
-                        try:
-                            j = first_idx[target + 1]
-                        except IndexError:
-                            j = len(first_idx)
-                        new_attr_val += attr_val[(i + n_imgs_per_class):j]
+                        beg += n_imgs_per_class_val
+                        if n_imgs_per_class_train is not None:
+                            end = min(end, beg + n_imgs_per_class_train)
                     else:
-                        new_attr_val += attr_val[i:(i + n_imgs_per_class)]
+                        end = min(end, beg + n_imgs_per_class_val)
+                    new_attr_val += attr_val[beg:end]
                 setattr(self, attr, new_attr_val)
 
 
@@ -234,6 +239,16 @@ class _ImageNetMixin(CustomDatasetMixin):
 
 class ImageNet(_ImageNetMixin, datasets.ImageNet):
     pass
+
+
+class ImageNetT100(ImageNet):
+    """
+    Truncated ImageNet: only 100 images per class in the training set.
+    
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, n_imgs_per_class_train=100, **kwargs)
+
 
 class _ImageNetFewClasses(ImageNet):
     def __init__(self, num_classes, split='train', **kwargs):

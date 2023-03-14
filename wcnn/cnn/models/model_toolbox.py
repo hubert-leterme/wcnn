@@ -17,7 +17,10 @@ class CustomModelMixin:
             self, *args, num_classes=1000, pretrained_model=None,
             status_pretrained=None, **kwargs
     ):
-        kwargs_net = toolbox.extract_dict(self._get_list_of_kwargs_net(), kwargs)
+        kwargs_net = toolbox.extract_dict(
+            self._get_list_of_kwargs_net(), kwargs,
+            keep=self._keep_kwargs_for_structure_modifications()
+        )
         kwargs_loadpretrained = toolbox.extract_dict(
             classifier.LIST_OF_KWARGS_LOAD, kwargs
         )
@@ -33,10 +36,14 @@ class CustomModelMixin:
             self._structure_modifications(**kwargs)
         except TypeError:
             # Avoids "TypeError: _structure_modifications() got an unexpected
-            # keyword argument 'skip_pretrained_freeconv'". This occurs when
+            # keyword argument ...". This occurs when
             # self._structure_modifications(**kwargs) does nothing (i.e., for
             # standard models), but I do not really understand why...
-            kwargs.pop("skip_pretrained_freeconv", None)
+            remove_args = [
+                "skip_pretrained_freeconv", "trainable_qmf", "blurfilt_size"
+            ]
+            for arg in remove_args:
+                kwargs.pop(arg, None)
             self._structure_modifications(**kwargs)
 
         if pretrained_model is not None:
@@ -130,10 +137,19 @@ class CustomModelMixin:
 
     def _get_list_of_kwargs_net(self):
         """
-        List of keyword arguments to be passed to the network constructor.
+        List of keyword arguments to be passed to the network's constructor.
 
         """
         return [] # By default, no extra keyword argument
+
+
+    def _keep_kwargs_for_structure_modifications(self):
+        """
+        List of keyword arguments which must be used twice: once for the
+        constructor of the parent class; and once for the wavelet block.
+
+        """
+        return [] # By default, discard all keyword arguments
 
 
     def _get_list_of_kwargs_submodules(self, which):
@@ -185,13 +201,3 @@ def get_blurpool_constructor(
         kwargs.update(group=group)
 
     return blurpool
-
-
-def update_kwargs_modelconstructor(kwargs):
-    if kwargs.get("wavelet") is None:
-        kwargs.update(wavelet="qshift_a")
-    blurfilt_size = kwargs.get("blurfilt_size")
-    if blurfilt_size is not None:
-        # - 'blurfilt_size' is used for method 'structure_modifications';
-        # - 'filter_size' is used to initialize the parent class.
-        kwargs.update(filter_size=blurfilt_size)

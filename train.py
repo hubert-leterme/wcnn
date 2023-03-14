@@ -4,6 +4,7 @@ import inspect
 import ipdb
 
 from wcnn.classifier import WaveCnnClassifier
+from wcnn.classifier.classifier_toolbox import ClassifNotFoundError
 from wcnn import utils, toolbox, data
 from wcnn.cnn import models
 from wcnn.utils import LIST_OF_KWARGS_DATASET, LIST_OF_KWARGS_DIST
@@ -12,13 +13,9 @@ from base_scripts import base
 
 # Dictionary of dataset-dependent arguments to be passed to the constructor of
 # the classifier (only the arguments which differ from the default arguments).
-# In case of existing classifier, the corresponding attributes will be updated
-# on loading.
 DATASET_DEPENDENT_ARGS = {
     'MNIST': dict(size=32, data_augmentation=False),
     'ImageNet': dict(metrics='top1_5_accuracy_scores'),
-    'ImageNet100': dict(metrics='top1_5_accuracy_scores'),
-    'ImageNet20': dict(metrics='top1_5_accuracy_scores'),
     'CIFAR10': dict(size=32)
 }
 
@@ -181,6 +178,12 @@ def main():
               "the filters. Default = 'dtcwt'")
     )
     parser.add_argument(
+        '--trainable-qmf',
+        action='store_true',
+        default=argparse.SUPPRESS,
+        help=("Set the QMFs as trainable parameters.")
+    )
+    parser.add_argument(
         '--pretrained-model',
         default=argparse.SUPPRESS,
         help=("Name of the classifier containing the pretrained model. If None "
@@ -241,7 +244,7 @@ def main():
         # the number of images per class in the validation set is set to a much
         # smaller number than for the actual dataset.
         if args.ds_name is None or "ImageNet" in args.ds_name:
-            args.n_imgs_per_class = 8
+            args.n_imgs_per_class_val = 8
         args.n_train = 16
         args.n_val = 16
         args.batch_size_train = 4
@@ -263,7 +266,15 @@ def main_worker(gpu, ngpus_per_node, args):
     kwargs = vars(args).copy()
 
     # Dataset-dependent arguments
-    kwargs.update(**DATASET_DEPENDENT_ARGS[args.ds_name])
+    kwargs_dataset = {}
+    try:
+        kwargs_dataset = DATASET_DEPENDENT_ARGS[args.ds_name]
+    except KeyError:
+        for key in DATASET_DEPENDENT_ARGS:
+            if key in args.ds_name:
+                kwargs_dataset = DATASET_DEPENDENT_ARGS[key]
+                break
+    kwargs.update(**kwargs_dataset)
 
     # Load dataset
     dataloader = data.__dict__[args.ds_name]
@@ -282,7 +293,7 @@ def main_worker(gpu, ngpus_per_node, args):
         kwargs_dataset.update(split='val')
         ds_val = utils.load_dataset(
             dataloader, n_imgs=args.n_val, infoprinter=infoprinter,
-            datatype="validation", **kwargs_dataset
+            task="validation", **kwargs_dataset
         )
         infoprinter("...done.")
     else:
@@ -325,8 +336,8 @@ def main_worker(gpu, ngpus_per_node, args):
         classif = WaveCnnClassifier(name=args.name, **kwargs_classif)
         infoprinter("...done.")
 
-    except FileNotFoundError as err:
-        raise FileNotFoundError(
+    except ClassifNotFoundError as err:
+        raise ClassifNotFoundError(
             "A checkpoint was previously created but the "
             "corresponding file is missing. You can use another name "
             "for the classifier, or remove the existing entry "

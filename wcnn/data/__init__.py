@@ -1,2 +1,2 @@
-from .datasets import MNIST, ImageNet, ImageNet100, ImageNet20, \
-                      ImageNetC, ImageNetP, CIFAR10
+from .datasets import MNIST, ImageNet, ImageNetT100, ImageNet100, \
+                      ImageNet20, ImageNetC, ImageNetP, CIFAR10

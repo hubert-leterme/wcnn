@@ -47,8 +47,8 @@ class BaseDwt2d(base_modules.ConvKernelMixin, nn.Module):
     """
     def __init__(self, in_channels, depth, stride, cmf_map, init_hcmftypes,
                  init_gcmftypes=None, padding_mode='zeros',
-                 wavelet=None, backend='dtcwt', n_filters=1,
-                 discard_featmaps=None, verbose=False):
+                 wavelet='qshift_a', backend='dtcwt', n_filters=1,
+                 discard_featmaps=None, trainable_qmf=False, verbose=False):
 
         super().__init__()
 
@@ -116,14 +116,14 @@ class BaseDwt2d(base_modules.ConvKernelMixin, nn.Module):
                     gfilt, filter_size
                 )
 
-        # Create trainable parameter and disable gradient if needed
+        # Create trainable parameters and disable gradients if needed
         self._hfilters = nn.Parameter(
-            torch.stack(hfilters), requires_grad=False
+            torch.stack(hfilters), requires_grad=trainable_qmf
         )
-        # Buffer (attributes that are not parameters but should also be sent
-        # to device)
-        if gfilters is not None:
-            self.register_buffer('_gfilters', torch.stack(gfilters))
+        if not gfilters is None:
+            self._gfilters = nn.Parameter(
+                torch.stack(gfilters), requires_grad=trainable_qmf
+            )
         else:
             self._gfilters = None
 
@@ -244,6 +244,7 @@ class BaseDwt2d(base_modules.ConvKernelMixin, nn.Module):
             out = torch.split(self._gfilters, 1) # Shape of subtensors = (1, Q)
             out = [gfilt.flatten() for gfilt in out]
         else:
+            out = []
             for hfilt in self.hfilters:
                 out.append(_get_gfilter(hfilt))
         return out

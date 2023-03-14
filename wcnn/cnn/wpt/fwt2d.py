@@ -21,6 +21,8 @@ class Wpt2d(BaseDwt2d):
     backend (str, default='dtcwt')
         One of 'pywt' or 'dtcwt'. Name of the library from which to get the
         filters.
+    trainable_qmf (bool, default=False)
+        Whether to set the QMFs as trainable parameters.
     padding_mode (str, default='zeros')
         One of 'zeros' or 'reflect' ('periodic' may be implemented as well).
 

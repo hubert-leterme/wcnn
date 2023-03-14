@@ -20,8 +20,8 @@ from . import N_GPUS
 #=================================================================================
 
 LIST_OF_KWARGS_DATASET = [
-    'root', 'split', 'n_imgs_per_class', 'annfile', 'trainfolder', 'grayscale',
-    'n_imgs'
+    'root', 'split', 'n_imgs_per_class_train', 'n_imgs_per_class_val', 'annfile',
+    'trainfolder', 'grayscale', 'n_imgs'
 ]
 LIST_OF_KWARGS_DIST = ['distributed', 'gpu', 'rank', 'world_size']
 
@@ -62,17 +62,15 @@ def remove_classif(
 
 def load_dataset(
         dataloader, n_imgs=None, infoprinter=print,
-        datatype="training", **kwargs
+        task="training", **kwargs
 ):
     # Training set
     dataset = dataloader(**kwargs)
     if n_imgs is not None:
         dataset.truncate(n_imgs, update_classes=False)
         dataset.debug = True # Debug mode ("fake prediction")
-    infoprinter(
-        "Path to the {} dataset: {}\n".format(datatype, dataset.root),
-        always=True
-    )
+    infoprinter("Dataset used for {}:".format(task), always=True)
+    infoprinter(dataset, always=True)
 
     return dataset
 

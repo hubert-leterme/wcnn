@@ -14,7 +14,7 @@ while CONFIGFILE is None:
     try:
         configdir = next(_iter_config_dirlist)
     except StopIteration:
-        pass
+        break
     else:
         test_path = os.path.join(configdir, "wcnn_config.yml")
         if os.path.isfile(test_path):

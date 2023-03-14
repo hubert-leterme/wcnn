@@ -67,7 +67,9 @@ def plot_data(
         title=None, markevery=1, zorders=None, select_idx=None,
         fontsize_title=FONTSIZE_TITLE, **kwargs
 ):
-    kwargs_legend = toolbox.extract_dict(LIST_OF_KWARGS_LEGEND, kwargs)
+    kwargs_legend = toolbox.extract_dict(
+        LIST_OF_KWARGS_LEGEND, kwargs, key_replacement=dict(legend_loc='loc')
+    )
 
     n = len(list_of_x)
     assert len(list_of_dataseqs) == n
@@ -93,7 +95,7 @@ def plot_data(
     )
 
     # Figure
-    plt.figure(figsize=figsize)
+    _, ax = plt.subplots(figsize=figsize)
 
     # Plot data
     out = []
@@ -115,7 +117,7 @@ def plot_data(
             x0 = x[(x >= min_x0) & (x <= max_x0)]
             seq = seq[(x >= min_x0) & (x <= max_x0)]
 
-            out.append(plt.plot(x0, seq, **kwargs))
+            out.append(ax.plot(x0, seq, **kwargs))
 
     # Chart layout
     plt.legend([labels[i] for i in select_idx], **kwargs_legend)
@@ -132,7 +134,7 @@ def plot_data(
         plt.ylim(top=ytop)
     plt.title(title, size=fontsize_title)
 
-    return out
+    return out, ax
 
 
 def plot_loss(

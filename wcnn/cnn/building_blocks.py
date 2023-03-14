@@ -96,6 +96,9 @@ class WptBlock(base_modules.Sequential):
         One of 'pywt' or 'dtcwt'. Name of the library from which to get the
         filters.
 
+    trainable_qmf (bool, default=False)
+        Whether to set the QMFs as trainable parameters.
+
     padding_mode (str, default='zeros')
         Padding mode in the WPT layer. One of 'zeros' (default) or 'symmetric'.
 
@@ -310,6 +313,9 @@ class HybridConv2dWpt(base_modules.ParallelConv2d):
     backend (str, default='dtcwt')
         One of 'pywt' or 'dtcwt'. Name of the library from which to get the
         filters.
+
+    trainable_qmf (bool, default=False)
+        Whether to set the QMFs as trainable parameters.
 
     padding_mode (str, default='zeros')
         Padding mode in the WPT layer. One of 'zeros' (default) or 'symmetric'.

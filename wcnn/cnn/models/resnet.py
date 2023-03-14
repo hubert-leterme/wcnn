@@ -15,108 +15,37 @@ from . import model_toolbox
 # Base class
 #===============================================================================
 
-def _get_maxpool(
-        n_channels=64, has_blurpool=False, blurfilt_size=None,
-        use_adaptive_blurpool=False, **kwargs
+def _get_activation_pooling(
+        which, n_channels=64, blurfilt_size=None, use_adaptive_blurpool=False, **kwargs
 ):
-
-    out = [
+    if which =="max":
+        out = [
             nn.BatchNorm2d(n_channels),
-            nn.ReLU(inplace=True)
-        ]
-
-    if not has_blurpool:
-        out += [
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         ]
-    else:
+    elif which == "maxblur":
         blurpool = model_toolbox.get_blurpool_constructor(
             n_channels, kwargs, blurfilt_size=blurfilt_size,
             use_adaptive_blurpool=use_adaptive_blurpool
         )
-        out += [
+        out = [
+            nn.BatchNorm2d(n_channels),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=1, padding=1),
             blurpool(n_channels, **kwargs)
         ]
-
-    return nn.Sequential(*out)
-
-
-def _get_modulus(n_channels=64):
-
-    out = [
-        base_modules.Downsample2d(),
-        base_modules.Modulus(),
-        base_modules.BatchNormOnGaborModulus2d(n_channels),
-        nn.ReLU(inplace=True)
-    ]
-
-    return nn.Sequential(*out)
-
-
-def _structure_modifications0(
-        net, antialiased=False, use_adaptive_blurpool=False,
-        cgmod=False, use_wpt_block=False,
-        has_freelytrainedkernels=False, whichtypes=None,
-        freeze_first_layer=False, out_channels_freeconv=None,
-        blurfilt_size=None, correct_maxpool_kersize=True,
-        **kwargs
-):
-    if use_wpt_block:
-        kwargs.update(
-            in_channels=3, stride=2, out_featmaps=64, bias=False
-        )
-        if not has_freelytrainedkernels:
-            wptlayer = building_blocks.WptBlock(**kwargs)
-        else:
-            kwargs.update(
-                out_channels_freeconv=out_channels_freeconv,
-                kernel_size_freeconv=7,
-                padding=3
-            )
-            wptlayer = building_blocks.HybridConv2dWpt(**kwargs)
-
-        net.conv1 = wptlayer
-
-        # Create activation + pooling module
-        kwargs_maxpool = {}
-        kwargs_modulus = {}
-        if antialiased:
-            kwargs_maxpool.update(
-                has_blurpool=True, blurfilt_size=blurfilt_size,
-                use_adaptive_blurpool=use_adaptive_blurpool
-            )
-
-        if cgmod:
-            # Freely-trained channels
-            pooling_low = _get_maxpool(
-                n_channels=out_channels_freeconv, **kwargs_maxpool
-            )
-            # WPT channels
-            pooling_high = _get_modulus(
-                n_channels=(64 - out_channels_freeconv), **kwargs_modulus
-            )
-            poolinglayer = building_blocks.Pooling(
-                wptlayer.split_out_sections, whichtypes, pooling_low, pooling_high
-            )
-
-        else:
-            poolinglayer = _get_maxpool(**kwargs_maxpool)
-
-        # Batch norm and ReLU are in the pooling layer
-        net.bn1 = nn.Identity()
-        net.relu = nn.Identity()
-        net.maxpool = poolinglayer
-
+    elif which == "mod":
+        out = [
+            base_modules.Downsample2d(),
+            base_modules.Modulus(),
+            base_modules.BatchNormOnGaborModulus2d(n_channels),
+            nn.ReLU(inplace=True)
+        ]
     else:
-        # Correct bug in Zhang's implementation (was it done on purpose?),
-        # if requested. Change kernel_size=2 to kernel_size=3.
-        if antialiased and correct_maxpool_kersize:
-            net.maxpool[0] = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
+        raise ValueError("Positional argument must be one of 'max', 'maxblur' or 'mod'.")
 
-
-    if freeze_first_layer:
-        cnn_toolbox.freeze_layers([net.conv1], frozen_modules=1)
+    return nn.Sequential(*out)
 
 
 class _BaseResNetMixin(model_toolbox.CustomModelMixin):
@@ -154,12 +83,70 @@ class _BaseResNetMixin(model_toolbox.CustomModelMixin):
         return super().load_state_dict(state_dict, **kwargs)
 
 
-    def _structure_modifications(self, **kwargs):
-        _structure_modifications0(self, **kwargs)
+    def _structure_modifications(
+            self, use_wpt_block=False,
+            which_activation_freechannels=None,
+            which_activation_gaborchannels=None,
+            use_adaptive_blurpool=False,
+            has_freelytrainedkernels=False, whichtypes=None,
+            freeze_first_layer=False, out_channels_freeconv=None,
+            blurfilt_size=None, **kwargs
+    ):
+        if use_wpt_block:
+            kwargs.update(
+                in_channels=3, stride=2, out_featmaps=64, bias=False
+            )
+            if not has_freelytrainedkernels:
+                wptlayer = building_blocks.WptBlock(**kwargs)
+            else:
+                kwargs.update(
+                    out_channels_freeconv=out_channels_freeconv,
+                    kernel_size_freeconv=7, padding=3
+                )
+                wptlayer = building_blocks.HybridConv2dWpt(**kwargs)
+
+            self.conv1 = wptlayer
+
+            # Create activation + pooling module
+            kwargs_activation_pooling = dict(
+                blurfilt_size=blurfilt_size,
+                use_adaptive_blurpool=use_adaptive_blurpool
+            )
+            if which_activation_freechannels == which_activation_gaborchannels:
+                poolinglayer = _get_activation_pooling(
+                    which_activation_freechannels, **kwargs_activation_pooling
+                )
+            else:
+                # Freely-trained channels
+                pooling_low = _get_activation_pooling(
+                    which_activation_freechannels, n_channels=out_channels_freeconv,
+                    **kwargs_activation_pooling
+                )
+                # WPT channels
+                pooling_high = _get_activation_pooling(
+                    which_activation_gaborchannels, n_channels=(64 - out_channels_freeconv),
+                    **kwargs_activation_pooling
+                )
+                poolinglayer = building_blocks.Pooling(
+                    wptlayer.split_out_sections, whichtypes, pooling_low, pooling_high
+                )
+
+            # Batch norm and ReLU are in the pooling layer
+            self.bn1 = nn.Identity()
+            self.relu = nn.Identity()
+            self.maxpool = poolinglayer
+
+
+        if freeze_first_layer:
+            cnn_toolbox.freeze_layers([self.conv1], frozen_modules=1)
 
 
     def _get_list_of_kwargs_net(self):
         return ['norm_layer']
+
+
+    def _keep_kwargs_for_structure_modifications(self):
+        return ['blurfilt_size']
 
 
     def _replace_last_layer(self, num_classes):
@@ -171,31 +158,50 @@ class ResNet(_BaseResNetMixin, models.ResNet):
     pass
 
 
-class _BaseAntialiasedResNetMixin(_BaseResNetMixin):
+class _BaseZhangZouResNetMixin:
 
-    def __init__(self, *args, filter_size=4, **kwargs):
-        super().__init__(*args, filter_size=filter_size, **kwargs)
-
-    def _structure_modifications(self, **kwargs):
-        super()._structure_modifications(antialiased=True, **kwargs)
-
-    def _get_list_of_kwargs_net(self):
-        out = super()._get_list_of_kwargs_net() + ['filter_size']
-        return out
+    def __init__(
+            self, *args, blurfilt_size=None, **kwargs
+    ):
+        if blurfilt_size is not None:
+            kwargs.update(filter_size=blurfilt_size)
+        super().__init__(*args, **kwargs)
 
 
-class ZhangResNet(_BaseAntialiasedResNetMixin, zhangmodels.ResNet):
+class _BaseZhangResNet(_BaseZhangZouResNetMixin, zhangmodels.ResNet):
+    pass
+
+class _BaseZouResNet(_BaseZhangZouResNetMixin, zoumodels.ResNet):
     pass
 
 
-class ZouResNet(_BaseAntialiasedResNetMixin, zoumodels.ResNet):
+class _BaseAntialiasedResNetMixin(_BaseResNetMixin):
+
+    def __init__(self, *args, blurfilt_size=3, **kwargs):
+        super().__init__(*args, blurfilt_size=blurfilt_size, **kwargs)
+
+    def _structure_modifications(
+            self, use_wpt_block=False, correct_maxpool_kersize=True, **kwargs
+    ):
+        # Correct bug in Zhang's implementation (was it done on purpose?),
+        # if requested. Change kernel_size=2 to kernel_size=3.
+        if not use_wpt_block and correct_maxpool_kersize:
+            self.maxpool[0] = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
+        return super()._structure_modifications(use_wpt_block=use_wpt_block, **kwargs)
+
+    def _get_list_of_kwargs_net(self):
+        out = super()._get_list_of_kwargs_net() + ['blurfilt_size']
+        return out
+
+
+class ZhangResNet(_BaseAntialiasedResNetMixin, _BaseZhangResNet):
+    pass
+
+
+class ZouResNet(_BaseAntialiasedResNetMixin, _BaseZouResNet):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, pasa_group=8, **kwargs)
-
-
-    def _structure_modifications(self, **kwargs):
-        super()._structure_modifications(use_adaptive_blurpool=True, **kwargs)
 
 
     def _get_list_of_kwargs_net(self):
@@ -204,20 +210,19 @@ class ZouResNet(_BaseAntialiasedResNetMixin, zoumodels.ResNet):
 
 
 def _base_resnet(
-        nlayers, antialiased=False, use_adaptive_blurpool=False, **kwargs
+        constr, nlayers, **kwargs
 ):
-    if not antialiased:
-        constr = ResNet
+    if constr == ResNet:
         basicblock = models.resnet.BasicBlock
         bottleneck = models.resnet.Bottleneck
-    elif not use_adaptive_blurpool:
-        constr = ZhangResNet
+    elif constr == ZhangResNet:
         basicblock = zhangmodels.resnet.BasicBlock
         bottleneck = zhangmodels.resnet.Bottleneck
-    else:
-        constr = ZouResNet
+    elif constr == ZouResNet:
         basicblock = zoumodels.BasicBlock
         bottleneck = zoumodels.Bottleneck
+    else:
+        raise TypeError(constr.__name__)
 
     if nlayers == 18:
         block = basicblock
@@ -244,31 +249,33 @@ def _base_resnet(
 CONFIG_DICT_STDRESNET = {
     # Standard model
     'Std': {},
-    'Bf3': dict(filter_size=3),
-    'Bf5': dict(filter_size=5),
+    'Bf2': dict(blurfilt_size=2),
+    'Bf3': dict(blurfilt_size=3),
+    'Bf4': dict(blurfilt_size=4),
+    'Bf5': dict(blurfilt_size=5),
+    'Bf6': dict(blurfilt_size=6),
+    'Bf7': dict(blurfilt_size=7),
     'Frozen': dict(freeze_first_layer=True),
 
     # Without bug correction (kernel size in maxpool)
     'StdK2': dict(correct_maxpool_kersize=False),
-    'Bf3K2': dict(correct_maxpool_kersize=False, filter_size=3),
-    'Bf5K2': dict(correct_maxpool_kersize=False, filter_size=5)
+    'Bf3K2': dict(correct_maxpool_kersize=False, blurfilt_size=3),
+    'Bf5K2': dict(correct_maxpool_kersize=False, blurfilt_size=5)
 }
 
-def _base_std_resnet(nlayers, config="Std", **kwargs):
+def _base_std_resnet(constr, nlayers, config="Std", **kwargs):
     kwargs.update(**CONFIG_DICT_STDRESNET[config])
-    return _base_resnet(nlayers, **kwargs)
+    return _base_resnet(constr, nlayers, **kwargs)
 
 
 def _resnet(nlayers, **kwargs):
-    return _base_std_resnet(nlayers, antialiased=False, **kwargs)
+    return _base_std_resnet(ResNet, nlayers, **kwargs)
 
 def _zhang_resnet(nlayers, **kwargs):
-    return _base_std_resnet(nlayers, antialiased=True, **kwargs)
+    return _base_std_resnet(ZhangResNet, nlayers, **kwargs)
 
 def _zou_resnet(nlayers, **kwargs):
-    return _base_std_resnet(
-        nlayers, antialiased=True, use_adaptive_blurpool=True, **kwargs
-    )
+    return _base_std_resnet(ZouResNet, nlayers, **kwargs)
 
 def resnet18(**kwargs):
     return _resnet(18, **kwargs)
@@ -386,9 +393,24 @@ CONFIG_DICT_DTCWPTRESNET.update({
     'Ft40YEx': dict(
         **_KWARGS_COLORMIX, **_KWARGS_RGPOOL_EXCLUDE_EDGES
     ),
+    'Ft40YBf2Ex': dict(
+        blurfilt_size=2, **_KWARGS_COLORMIX, **_KWARGS_RGPOOL_EXCLUDE_EDGES
+    ),
     'Ft40YBf3Ex': dict(
         blurfilt_size=3, **_KWARGS_COLORMIX, **_KWARGS_RGPOOL_EXCLUDE_EDGES
-    )
+    ),
+    'Ft40YBf4Ex': dict(
+        blurfilt_size=4, **_KWARGS_COLORMIX, **_KWARGS_RGPOOL_EXCLUDE_EDGES
+    ),
+    'Ft40YBf5Ex': dict(
+        blurfilt_size=5, **_KWARGS_COLORMIX, **_KWARGS_RGPOOL_EXCLUDE_EDGES
+    ),
+    'Ft40YBf6Ex': dict(
+        blurfilt_size=6, **_KWARGS_COLORMIX, **_KWARGS_RGPOOL_EXCLUDE_EDGES
+    ),
+    'Ft40YBf7Ex': dict(
+        blurfilt_size=7, **_KWARGS_COLORMIX, **_KWARGS_RGPOOL_EXCLUDE_EDGES
+    ),
 })
 
 # CWResNet (CGMod)
@@ -396,10 +418,11 @@ CONFIG_DICT_DTCWPTRESNET.update({
 _WHICHTYPES = ['low', 'high', 'high'] # Scale 0, scale 1 and scale 2
 _WHICHTYPES_EXCLUDE_EDGES = ['low'] + 5 * ['high']
 _KWARGS_CGMOD = dict(
-    cgmod=True, whichtypes=_WHICHTYPES, **_KWARGS
+    which_activation_gaborchannels="mod", whichtypes=_WHICHTYPES, **_KWARGS
 )
 _KWARGS_CGMOD_EXCLUDE_EDGES = dict(
-    cgmod=True, whichtypes=_WHICHTYPES_EXCLUDE_EDGES, **_KWARGS_EXCLUDE_EDGES
+    which_activation_gaborchannels="mod", whichtypes=_WHICHTYPES_EXCLUDE_EDGES,
+    **_KWARGS_EXCLUDE_EDGES
 )
 CONFIG_DICT_DTCWPTRESNET.update({
     'Ft40_mod': dict(
@@ -417,31 +440,91 @@ CONFIG_DICT_DTCWPTRESNET.update({
     'Ft40YEx_mod': dict(
         **_KWARGS_COLORMIX, **_KWARGS_CGMOD_EXCLUDE_EDGES
     ),
+    'Ft40YBf2Ex_mod': dict(
+        blurfilt_size=2, **_KWARGS_COLORMIX, **_KWARGS_CGMOD_EXCLUDE_EDGES
+    ),
     'Ft40YBf3Ex_mod': dict(
         blurfilt_size=3, **_KWARGS_COLORMIX, **_KWARGS_CGMOD_EXCLUDE_EDGES
-    )
+    ),
+    'Ft40YBf4Ex_mod': dict(
+        blurfilt_size=4, **_KWARGS_COLORMIX, **_KWARGS_CGMOD_EXCLUDE_EDGES
+    ),
+    'Ft40YBf5Ex_mod': dict(
+        blurfilt_size=5, **_KWARGS_COLORMIX, **_KWARGS_CGMOD_EXCLUDE_EDGES
+    ),
+    'Ft40YBf6Ex_mod': dict(
+        blurfilt_size=6, **_KWARGS_COLORMIX, **_KWARGS_CGMOD_EXCLUDE_EDGES
+    ),
+    'Ft40YBf7Ex_mod': dict(
+        blurfilt_size=7, **_KWARGS_COLORMIX, **_KWARGS_CGMOD_EXCLUDE_EDGES
+    ),
+})
+
+# Ablations
+# ==============================================================================
+_WHICHTYPES = ['low', 'high']
+_KWARGS_ABL1_EXCLUDE_EDGES = dict(
+    real_part_only=True, which_activation_gaborchannels="maxblur",
+    whichtypes=_WHICHTYPES, **_KWARGS_EXCLUDE_EDGES
+)
+_KWARGS_ABL2_EXCLUDE_EDGES = dict(
+    real_part_only=True, which_activation_gaborchannels="max",
+    whichtypes=_WHICHTYPES, **_KWARGS_EXCLUDE_EDGES
+)
+CONFIG_DICT_DTCWPTRESNET.update({
+    'Ft40YBf3Ex_abl1': dict(
+        blurfilt_size=3, **_KWARGS_COLORMIX, **_KWARGS_ABL1_EXCLUDE_EDGES
+    ), # "Addiditve" ablation; to be used with 'dtcwpt_resnet'
+    'Ft40YBf3Ex_abl1ada': dict(
+        blurfilt_size=3, use_adaptive_blurpool=True,
+        **_KWARGS_COLORMIX, **_KWARGS_ABL1_EXCLUDE_EDGES
+    ), # "Addiditve" ablation; to be used with 'dtcwpt_resnet'
+    'Ft40YBf3Ex_abl2': dict(
+        blurfilt_size=3, **_KWARGS_COLORMIX, **_KWARGS_ABL2_EXCLUDE_EDGES
+    ) # "Soustractive" ablation; to be used with 'dtcwpt_zhang_resnet'
 })
 
 
-def _base_dtcwpt_resnet(nlayers, config, **kwargs):
+def _base_dtcwpt_resnet(constr, nlayers, config, **kwargs):
     kwargs.update(**CONFIG_DICT_DTCWPTRESNET[config])
-    model_toolbox.update_kwargs_modelconstructor(kwargs)
     out = _base_resnet(
-        nlayers, use_wpt_block=True, wpt_type='dtcwpt2d',
+        constr, nlayers, use_wpt_block=True, wpt_type='dtcwpt2d',
         depth=2, stride=2, **kwargs
     )
     return out
 
 
-def _dtcwpt_resnet(nlayers, config, **kwargs):
-    return _base_dtcwpt_resnet(nlayers, config, **kwargs)
-
-def _dtcwpt_zhang_resnet(nlayers, config, **kwargs):
-    return _base_dtcwpt_resnet(nlayers, config, antialiased=True, **kwargs)
-
-def _dtcwpt_zou_resnet(nlayers, config, **kwargs):
+def _dtcwpt_resnet(
+        nlayers, config, which_activation_freechannels="max",
+        which_activation_gaborchannels="max", **kwargs
+):
     return _base_dtcwpt_resnet(
-        nlayers, config, antialiased=True, use_adaptive_blurpool=True, **kwargs
+        ResNet, nlayers, config,
+        which_activation_freechannels=which_activation_freechannels,
+        which_activation_gaborchannels=which_activation_gaborchannels,
+        **kwargs
+    )
+
+def _dtcwpt_zhang_resnet(
+        nlayers, config, which_activation_freechannels="maxblur",
+        which_activation_gaborchannels="maxblur", **kwargs
+):
+    return _base_dtcwpt_resnet(
+        ZhangResNet, nlayers, config,
+        which_activation_freechannels=which_activation_freechannels,
+        which_activation_gaborchannels=which_activation_gaborchannels,
+        **kwargs
+    )
+
+def _dtcwpt_zou_resnet(
+        nlayers, config, which_activation_freechannels="maxblur",
+        which_activation_gaborchannels="maxblur", **kwargs
+):
+    return _base_dtcwpt_resnet(
+        ZouResNet, nlayers, config,
+        which_activation_freechannels=which_activation_freechannels,
+        which_activation_gaborchannels=which_activation_gaborchannels,
+        use_adaptive_blurpool=True, **kwargs
     )
 
 

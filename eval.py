@@ -127,7 +127,7 @@ def main():
     # Set debug mode
     if args.debug % 2 == 0:
         if args.ds_name is None or "ImageNet" in args.ds_name:
-            args.n_imgs_per_class = 8
+            args.n_imgs_per_class_val = 8
         args.n_imgs = 16
         args.batch_size = 2
         args.verbose_print_batch = 1
@@ -165,7 +165,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     infoprinter("Loading evaluation set...")
     dataset = utils.load_dataset(
-        dataloader, infoprinter=infoprinter, datatype="evaluation",
+        dataloader, infoprinter=infoprinter, task="evaluation",
         **kwargs_dataset
     )
     infoprinter("...done.")
