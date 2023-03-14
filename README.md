@@ -1,6 +1,6 @@
 # <b>WCNN</b>
 
-**From CNNs to Shift-Invariant Twin Wavelet Models** ([arXiv:2212.00394](https://arxiv.org/abs/2212.00394))
+**From CNNs to Shift-Invariant Twin Models Based on Complex Wavelets** ([arXiv:2212.00394](https://arxiv.org/abs/2212.00394))
 
 *Hubert Leterme, Kévin Polisano, Valérie Perrier, Karteek Alahari*
 
@@ -48,36 +48,54 @@ WaveCnnClassifier.list()
 ```
 Here is a list of trained classifiers provided in this repository. **We only provided the training and evaluation metrics** (`<filename>.classif`), due to the storage limit. The files containing the PyTorch state dictionaries (`<filename>.tar`) can be retrieved by re-training the classifiers (see below).
 
-| Name | Baseline | Model | Dataset |
-| :--: | :---: | :-----------: | :-----: |
-| `AI` | AlexNet | Standard | ImageNet |
-| `AwyI` | AlexNet | $\mathbb R$-Max | ImageNet |
-| `AwyI_mod` | AlexNet | $\mathbb C$-Mod | ImageNet |
-| `AzhI` | AlexNet | Blur (`filter_size=4`) | ImageNet |
-| `AzhwyI` | AlexNet | Blur-$\mathbb R$-Max + Blur | ImageNet |
-| `AzhwyI_mod` | AlexNet | $\mathbb C$-Mod + Blur | ImageNet |
-| `RI` | ResNet-34 | Standard | ImageNet |
-| `RwyI` | ResNet-34 | $\mathbb R$-Max | ImageNet |
-| `RwyI_mod` | ResNet-34 | $\mathbb C$-Mod | ImageNet |
-| `RzhI` | ResNet-34 | Blur (`filter_size=4`) | ImageNet |
-| `RzhwyI` | ResNet-34 | Blur-$\mathbb R$-Max + Blur | ImageNet |
-| `RzhwyI_mod` | ResNet-34 | $\mathbb C$-Mod + Blur | ImageNet |
-| `Rzof3I` | ResNet-34 | ABlur (`filter_size=3`) | ImageNet |
-| `Rzof3wyI` | ResNet-34 | ABlur-$\mathbb R$-Max + ABlur | ImageNet |
-| `Rzof3wyI_mod` | ResNet-34 | $\mathbb C$-Mod + ABlur | ImageNet |
-| `R18C` | ResNet-18 | Standard | CIFAR10 |
-| `R18wyC` | ResNet-18 | $\mathbb R$-Max | CIFAR10 |
-| `R18wyC_mod` | ResNet-18 | $\mathbb C$-Mod | CIFAR10 |
-| `R18zhf3C` | ResNet-18 | Blur (`filter_size=3`) | CIFAR10 |
-| `R18zhf3wyC` | ResNet-18 | Blur-$\mathbb R$-Max + Blur | CIFAR10 |
-| `R18zhf3wyC_mod` | ResNet-18 | $\mathbb C$-Mod + Blur | CIFAR10 |
-| `R18zof3C` | ResNet-18 | ABlur (`filter_size=3`) | CIFAR10 |
-| `R18zof3wyC` | ResNet-18 | ABlur-$\mathbb R$-Max + ABlur | CIFAR10 |
-| `R18zof3wyC_mod` | ResNet-18 | $\mathbb C$-Mod + ABlur | CIFAR10 |
+| Name | Backbone | Type | Blur filter size | Dataset |
+| :--: | :---: | :-----------: | :-------------: | :-----: |
+| `AI` | AlexNet | CNN | - | ImageNet |
+| `AwyI` | AlexNet | WCNN | - | ImageNet |
+| `AwyI_mod` | AlexNet | $\mathbb C$-WCNN | - | ImageNet |
+| `Azh3I` | AlexNet | BlurCNN | 3 (default) | ImageNet |
+| `Azh3wyI` | AlexNet | BlurWCNN | 3 (default) | ImageNet |
+| `Azh3wyI_mod` | AlexNet | $\mathbb C$-BlurWCNN | 3 (default) | ImageNet |
+| `RI` | ResNet-34 | CNN | - | ImageNet |
+| `RwyI` | ResNet-34 | WCNN | - | ImageNet |
+| `RwyI_mod` | ResNet-34 | $\mathbb C$-WCNN | - | ImageNet |
+| `Rzh3I` | ResNet-34 | BlurCNN | 3 (default) | ImageNet |
+| `Rzh3wyI` | ResNet-34 | BlurWCNN | 3 (default) | ImageNet |
+| `Rzh3wyI_mod` | ResNet-34 | $\mathbb C$-BlurWCNN | 3 (default) | ImageNet |
+| `Rzh3wyI_abl` | ResNet-34 | BlurWCNN (ablated) | 3 (default) | ImageNet |
+| `Rzo3I` | ResNet-34 | ABlurCNN | 3 (default) | ImageNet |
+| `Rzo3wyI` | ResNet-34 | ABlurWCNN | 3 (default) | ImageNet |
+| `Rzo3wyI_mod` | ResNet-34 | $\mathbb C$-ABlurWCNN | 3 (default) | ImageNet |
+| `Rzo3wyI_abl` | ResNet-34 | ABlurWCNN (ablated) | 3 (default) | ImageNet |
+| `R18C` | ResNet-18 | CNN | - | CIFAR10 |
+| `R18wyC` | ResNet-18 | WCNN | - | CIFAR10 |
+| `R18wyC_mod` | ResNet-18 | $\mathbb C$-WCNN | - | CIFAR10 |
+| `R18zh3C` | ResNet-18 | BlurCNN | 3 (default) | CIFAR10 |
+| `R18zh3wyC` | ResNet-18 | BlurWCNN | 3 (default) | CIFAR10 |
+| `R18zh3wyC_mod` | ResNet-18 | $\mathbb C$-BlurWCNN | 3 (default) | CIFAR10 |
+| `R18zo3C` | ResNet-18 | ABlurCNN | 3 (default) | CIFAR10 |
+| `R18zo3wyC` | ResNet-18 | ABlurWCNN | 3 (default) | CIFAR10 |
+| `R18zo3wyC_mod` | ResNet-18 | $\mathbb C$-ABlurWCNN | 3 (default) | CIFAR10 |
+| `R34C` | ResNet-34 | CNN | - | CIFAR10 |
+| `R34wyC` | ResNet-34 | WCNN | - | CIFAR10 |
+| `R34wyC_mod` | ResNet-34 | $\mathbb C$-WCNN | - | CIFAR10 |
+| `R34zh3C` | ResNet-34 | BlurCNN | 3 (default) | CIFAR10 |
+| `R34zh3wyC` | ResNet-34 | BlurWCNN | 3 (default) | CIFAR10 |
+| `R34zh3wyC_mod` | ResNet-34 | $\mathbb C$-BlurWCNN | 3 (default) | CIFAR10 |
+| `R34zo3C` | ResNet-34 | ABlurCNN | 3 (default) | CIFAR10 |
+| `R34zo3wyC` | ResNet-34 | ABlurWCNN | 3 (default) | CIFAR10 |
+| `R34zo3wyC_mod` | ResNet-34 | $\mathbb C$-ABlurWCNN | 3 (default) | CIFAR10 |
 
 ```python
 # Load classifier (WAlexNet trained on ImageNet, 90 epochs)
-classif = WaveCnnClassifier.load("AwyI", status="e90")
+classif = WaveCnnClassifier.load(
+    "AwyI", status="e90", load_net=False, train=False
+)
+
+# Load classifier (WResNet-34 trained on CIFAR-10, 300 epochs)
+classif = WaveCnnClassifier.load(
+    "R34wyC", status="e300", load_net=False, train=False
+)
 ```
 
 The status can be equal to `checkpoint` (last saved checkpoint from this classifier), `best` (checkpoint with the best validation score so far; disabled by default), or `e<nepochs>`, where `<nepochs>` denotes the corresponding training epoch.
@@ -101,9 +119,9 @@ eval_scores = classif.eval_scores_
 
 ## Resulting Convolution Kernel
 
-In a WCNN, the first convolution layer is replaced by a PyTorch module of type `wcnn.cnn.building_blocks.HybridConv2dWpt`, which includes a freely-trained layer of type `torch.nn.Conv2d`, and a wavelet block of type `wcnn.cnn.building_blocks.WptBlock`.
+In a mathematical twin (WCNN), the first convolution layer is replaced by a PyTorch module of type `wcnn.cnn.building_blocks.HybridConv2dWpt`, which includes a freely-trained layer of type `torch.nn.Conv2d`, and a wavelet block of type `wcnn.cnn.building_blocks.WptBlock`.
 
-A module `HybridConv2dWpt` can be viewed as a conventional convolution layer with a reduced number of degrees of freedom. As such, it is possible to compute an "equivalent convolution kernel", as explained in the paper.
+A module `HybridConv2dWpt` is essentially a regular convolution layer with a reduced number of degrees of freedom. As such, it is possible to compute an "equivalent convolution kernel."
 
 ```python
 # In a standard AlexNet, this module would be of type torch.nn.Conv2d
@@ -115,7 +133,7 @@ ker = hybridconv.resulting_kernel
 
 Note that the kernel size ($72 \times 72$) is much bigger than in a conventional AlexNet ($11 \times 11$). However, most of its energy lies in a much smaller region because the filter coefficients are fast decaying.
 
-Besides, this resulting kernel is only used for visualization purpose. For computational reasons, the wavelet packet coefficients are actually computed with successive subsampled convolutions and linear combinations of feature maps.
+This resulting kernel is only used for visualization purpose. For computational reasons, the wavelet packet coefficients are actually computed with successive subsampled convolutions and linear combinations of feature maps.
 
 ## Evaluation Scores
 
@@ -137,23 +155,23 @@ For reproducibility reasons, the scores are stored in an object of type `wcnn.cl
 ```bash
 #!/bin/bash
 
-# Standard
+# CNN (standard model)
 python train.py AI -a AlexNet --lr 0.01
 
-# RMax
+# WCNN (mathematical twin)
 python train.py AwyI -a AlexNet --config Ft32Y --lr 0.01 --get-gradients --has-l1loss --lambda-params 0. 0.0041 0.00032
 
-# CMod
+# CWCNN (mathematical twin with CMod)
 python train.py AwyI_mod -a DtCwptAlexNet --config Ft32Y_mod --lr 0.01 --get-gradients --has-l1loss --lambda-params 0. 0.0041 0.00032
 
-# Blur (static blur pooling)
-python train.py AzhI -a ZhangAlexNet --lr 0.01
+# BlurCNN (blur pooling)
+python train.py Azh3I -a ZhangAlexNet --config Bf3 --lr 0.01
 
-# BlurRMax + Blur
-python train.py AzhwyI -a DtCwptZhangAlexNet --config Ft32Y --lr 0.01 --get-gradients --has-l1loss --lambda-params 0. 0.0041 0.00032
+# BlurWCNN (mathematical twin with blur pooling)
+python train.py Azh3wyI -a DtCwptZhangAlexNet --config Ft32YBf3 --lr 0.01 --get-gradients --has-l1loss --lambda-params 0. 0.0041 0.00032
 
-# CMod + Blur
-python train.py AzhwyI_mod -a DtCwptZhangAlexNet --config Ft32Y_mod --lr 0.01 --get-gradients --has-l1loss --lambda-params 0. 0.0041 0.00032
+# CBlurWCNN (mathematical twin with blur pooling and CMod)
+python train.py Azh3wyI_mod -a DtCwptZhangAlexNet --config Ft32YBf3_mod --lr 0.01 --get-gradients --has-l1loss --lambda-params 0. 0.0041 0.00032
 ```
 
 ### ResNet on ImageNet
@@ -161,32 +179,38 @@ python train.py AzhwyI_mod -a DtCwptZhangAlexNet --config Ft32Y_mod --lr 0.01 --
 ```bash
 #!/bin/bash
 
-# Standard
+# CNN (standard model)
 python train.py RI -a resnet34
 
-# RMax
+# WCNN (mathematical twin)
 python train.py RwyI -a dtcwpt_resnet34 --config Ft40YEx
 
-# CMod
+# CWCNN (mathematical twin with CMod)
 python train.py RwyI_mod -a dtcwpt_resnet34 --config Ft40YEx_mod
 
-# Blur (static blur pooling)
-python train.py RzhI -a zhang_resnet34
+# BlurCNN (blur pooling)
+python train.py Rzh3I -a zhang_resnet34 --config Bf3
 
-# BlurRMax + Blur
-python train.py RzhwyI -a dtcwpt_zhang_resnet34 --config Ft40YEx
+# BlurWCNN (mathematical twin with blur pooling)
+python train.py Rzh3wyI -a dtcwpt_zhang_resnet34 --config Ft40YBf3Ex
 
-# CMod + Blur
-python train.py RzhwyI_mod -a dtcwpt_zhang_resnet34 --config Ft40YEx_mod
+# CBlurWCNN (mathematical twin with blur pooling and CMod)
+python train.py Rzh3wyI_mod -a dtcwpt_zhang_resnet34 --config Ft40YBf3Ex_mod
 
-# ABlur (adaptive blur pooling)
-python train.py Rzof3I -a zou_resnet34 --config Bf3 -ba 2
+# Ablated BlurWCNN (mathematical twin with blur pooling except for the Gabor channels)
+python train.py Rzh3wyI_abl -a dtcwpt_zhang_resnet34 --config Ft40YBf3Ex_abl
 
-# ABlurRMax + ABlur
-python train.py Rzof3wyI -a dtcwpt_zou_resnet34 --config Ft40YBf3Ex -ba 2
+# ABlurCNN (adaptive blur pooling)
+python train.py Rzo3I -a zou_resnet34 --config Bf3 -ba 2
 
-# CMod + ABlur
-python train.py Rzof3wyI_mod -a dtcwpt_zou_resnet34 --config Ft40YBf3Ex_mod -ba 2
+# ABlurWCNN (mathematical twin with adaptive blur pooling)
+python train.py Rzo3wyI -a dtcwpt_zou_resnet34 --config Ft40YBf3Ex -ba 2
+
+# CABlurWCNN (mathematical twin with adaptive blur pooling and CMod)
+python train.py Rzo3wyI_mod -a dtcwpt_zou_resnet34 --config Ft40YBf3Ex_mod -ba 2
+
+# Ablated ABlurWCNN (mathematical twin with adaptive blur pooling except for the Gabor channels)
+python train.py Rzo3wyI_abl -a dtcwpt_zou_resnet34 --config Ft40YBf3Ex_abl
 ```
 
 ### ResNet on CIFAR10
@@ -196,35 +220,35 @@ python train.py Rzof3wyI_mod -a dtcwpt_zou_resnet34 --config Ft40YBf3Ex_mod -ba 
 
 # To use ResNet-34, 50 or 101 instead of 18, simply replace the number of layers in the following scripts.
 
-# Standard
+# CNN (standard model)
 python train.py R18C -a resnet18 -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
 
-# RMax
+# WCNN (mathematical twin)
 python train.py R18wyC -a dtcwpt_resnet18 --config Ft40YEx -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
 
-# CMod
+# CWCNN (mathematical twin with CMod)
 python train.py R18wyC_mod -a dtcwpt_resnet18 --config Ft40YEx_mod -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
 
-# Blur (static blur pooling)
-python train.py R18zhf3C -a zhang_resnet18 --config Bf3 -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
+# BlurCNN (blur pooling)
+python train.py R18zh3C -a zhang_resnet18 --config Bf3 -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
 
-# BlurRMax + Blur
-python train.py R18zhf3wyC -a dtcwpt_zhang_resnet18 --config Ft40YBf3Ex -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
+# BlurWCNN (mathematical twin with blur pooling)
+python train.py R18zh3wyC -a dtcwpt_zhang_resnet18 --config Ft40YBf3Ex -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
 
-# CMod + Blur
-python train.py R18zhf3wyC_mod -a dtcwpt_zhang_resnet18 --config Ft40YBf3Ex_mod -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
+# CBlurWCNN (mathematical twin with blur pooling and CMod)
+python train.py R18zh3wyC_mod -a dtcwpt_zhang_resnet18 --config Ft40YBf3Ex_mod -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
 
-# ABlur (adaptive blur pooling)
-python train.py R18zof3C -a zou_resnet18 --config Bf3 -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
+# ABlurCNN (adaptive blur pooling)
+python train.py R18zo3C -a zou_resnet18 --config Bf3 -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
 
-# ABlurRMax + ABlur
-python train.py R18zof3wyC -a dtcwpt_zou_resnet18 --config Ft40YBf3Ex -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
+# ABlurWCNN (mathematical twin with adaptive blur pooling)
+python train.py R18zo3wyC -a dtcwpt_zou_resnet18 --config Ft40YBf3Ex -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
 
-# CMod + ABlur
-python train.py R18zof3wyC_mod -a dtcwpt_zou_resnet18 --config Ft40YBf3Ex_mod -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
+# CABlurWCNN (mathematical twin with adaptive blur pooling and CMod)
+python train.py R18zo3wyC_mod -a dtcwpt_zou_resnet18 --config Ft40YBf3Ex_mod -ds CIFAR10 --epochs 300 --lr-scheduler StepLR100
 ```
 
-### Model configurations (argument `--config`) 
+### Model configurations (nomenclature for argument `--config`) 
 
 ```python
 from wcnn.cnn import models
@@ -256,18 +280,16 @@ The configurations are named according to the following nomenclature.
 
 - Following [the standard procedures](https://github.com/pytorch/examples/tree/main/imagenet), in AlexNet-based models, the initial learning rate is set to $0.01$ (the default value is $0.1$).
 
-- In ResNet-based models, the $14$ filters with maximal frequency ("edge" filters) have been manually discarded. These excluded filters have indeed poorly-defined orientations, and often take the appearance of a checkerboard. To use these filters nevertheless, simply replace (for instance) `--config Ft40YEx` by `--config Ft40Y` in the above scripts.
+- In ResNet-based models, the $14$ filters with maximal frequency ("boundary" filters) have been manually discarded. These excluded filters have indeed poorly-defined orientations, and often take the appearance of a checkerboard. To include these filters nonetheless, simply replace (for instance) `--config Ft40YEx` by `--config Ft40Y` in the above scripts.
 
 - There is no $l^1/l^\infty$-regularization for ResNet-based models. This is because the number of manually selected wavelet packet filters ($16$) is sufficiently small comparatively to the available number of output channels ($24$ assigned to the wavelet block). Therefore, all filters are mapped to at least one output channel. If `--config Ft40YEx` is replaced by `--config Ft40Y` (see above), then regularization is recommended. In this case, add parameters `--get-gradients` (optional), `--has-l1loss` and `--lambda-params 0. 0.005`. For instance:
 
 ```bash
 # RMax
-python train.py Rwy2I -a dtcwpt_resnet34 --config Ft40Y --get-gradients --has-l1loss --lambda-params 0. 0.005
+python train.py Rwy0I -a dtcwpt_resnet34 --config Ft40Y --get-gradients --has-l1loss --lambda-params 0. 0.005
 ```
 
-- For ImageNet training, the blurring filter size is respectively set to $4$ (static) and $3$ (adaptive), which are the default values in the corresponding libraries. However, for CIFAR10, the blurring filter size is set to $3$ in any case (otherwise, errors occur due to the small size of input images).
-
-## Model Evaluation
+## Evaluating a Model
 
 Examples with WAlexNet trained on ImageNet ($90$ epochs). The following scores are computed on the "test" dataset, which is actually the official "validation" set provided by ImageNet ($50\,000$ images). Note that, during training, a subset of the training set ($100\,000$ images) is used for validation.
 
