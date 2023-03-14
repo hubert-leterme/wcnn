@@ -266,7 +266,7 @@ The configurations are named according to the following nomenclature.
 | :-------: | :-----: |
 | `Ft32` | $32$ freely-trained channels |
 | `Y` | Color mixing before wavelet transform |
-| `Bf3` | Blurring filter of size $3$ (otherwise, default $= 4$) |
+| `Bf3` | Blurring filter of size $3$ |
 | `Ex` | Exclude edge filters (see remark below) |
 | `_mod` | Replace $\mathbb R$-Max (standalone or with blur pooling) by standalone $\mathbb C$-Mod |
 
