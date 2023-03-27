@@ -211,151 +211,15 @@ def _fft2(
             output_size = (output_size, output_size)
 
     if not inverse:
-        out = np.fft.fft2(out, s=output_size)
-        out = np.fft.fftshift(out, axes=(-2, -1))
+        out = torch.fft.fft2(out, s=output_size)
+        out = torch.fft.fftshift(out, dim=(-2, -1))
     else:
-        out = np.fft.fftshift(out, axes=(-2, -1))
-        out = np.fft.ifft2(out, s=output_size)
+        out = torch.fft.fftshift(out, dim=(-2, -1))
+        out = torch.fft.ifft2(out, s=output_size)
     if return_abs:
-        out = np.abs(out)
+        out = torch.abs(out)
 
     return out
-
-
-def compute_img_gradient(inp, axis):
-    """
-    Compute the gradient of a minibatch of images by using a Sobel filter.
-
-    Parameters
-    ----------
-    inp (torch.Tensor)
-        Input tensor of shape (n_imgs, in_channels, n, m)
-    axis (int)
-        Wether to compute the gradient along the x axis (axis='x') or along the
-        y axis (axis='y')
-
-    Returns
-    -------
-    out (torch.Tensor)
-        Output gradient tensor of shape (n_imgs, in_channels, n-2, m-2)
-
-    """
-    gradient = torch.Tensor([-1, 0, 1])
-    smoothing = torch.Tensor([1, 2, 1])
-    in_channels = inp.shape[1]
-    if axis == 'x':
-        vweight = in_channels * [smoothing] # Vertical smoothing
-        hweight = in_channels * [gradient] # Horizontal gradient
-    elif axis == 'y':
-        vweight = in_channels * [gradient] # Vertical gradient
-        hweight = in_channels * [smoothing] # Horizontal smoothing
-    else:
-        raise ValueError("'axis' must be equal to 'x' or 'y'.")
-
-    vweight = torch.stack(vweight) # Tensor of shape (in_channels, 3)
-    vweight = cnn_toolbox.unsqueeze_vertical_kernels(vweight)
-
-    hweight = torch.stack(hweight) # Tensor of shape (in_channels, 3)
-    hweight = cnn_toolbox.unsqueeze_horizontal_kernels(hweight)
-
-    out = cnn_toolbox.separable_conv2d(
-        inp, vweight, hweight, stride=1, padding=0
-    )
-
-    return out
-
-
-def structure_tensor(inp):
-    """
-    Compute the structure tensor as described in [Jahne, B. (2004). Practical
-    Handbook on Image Processing for Scientific and Technical Applications. CRC
-    Press]. The output is not exactly the structure tensor itself, but a
-    complete description of it using a 3D vector for each image and each channel:
-    [
-        J00 + J11
-        J11 - J00
-        2 J01
-    ]
-    where J denotes the 2x2 symmetric structure tensor.
-
-    Parameter
-    ---------
-    inp (torch.Tensor)
-        Input tensor of shape (n_imgs, in_channels, n, m)
-
-    Returns
-    -------
-    out (torch.Tensor)
-        Tensor structure of shape (n_imgs, in_channels, 3)
-
-    """
-    # Compute partial derivatives
-    grad_x = compute_img_gradient(inp, axis='x')
-    grad_y = compute_img_gradient(inp, axis='y')
-
-    # Compute structure tensor
-    Jxx = torch.sum(grad_x * grad_x, dim=(-2, -1))
-    Jxy = torch.sum(grad_x * grad_y, dim=(-2, -1))
-    Jyy = torch.sum(grad_y * grad_y, dim=(-2, -1))
-
-    out = torch.stack([
-        Jxx + Jyy,
-        Jyy - Jxx,
-        2 * Jxy
-    ], dim=-1)
-
-    return out
-
-
-def get_angles(struct, convert_to_degrees=False):
-
-    tan_twotheta = struct[:, :, 2] / struct[:, :, 1]
-    pishift = (
-        torch.sign(struct[:, :, 1] + struct[:, :, 2] * tan_twotheta) + 1
-    ) / 2 # 0 or 1
-    out = (torch.atan(tan_twotheta) + pishift * math.pi) / 2
-    if convert_to_degrees:
-        out *= 180 / math.pi
-    return out
-
-
-def homogeneity_direction_coherence(struct):
-    """
-    Parameters
-    ----------
-    struct (torch.Tensor)
-        Tensor of shape (n_imgs, in_channels, 3), describing a bunch of structure
-        tensors. See structure_tensor for more information.
-
-    Returns
-    -------
-    homogeneity (torch.Tensor)
-        Tensor of shape (n_imgs, in_channels) indicating the homogeneity of the
-        considered images. It is equal to J00 + J11, i.e., the sum of eigenvalues
-        of the structure tensor. The smaller, the more homogeneous.
-
-    direction (torch.Tensor)
-        Tensor of shape (n_imgs, in_channels, 2) containing normalized vectors
-        indicating the main orientation of each feature map.
-
-    coherence (torch.Tensor)
-        Tensor of shape (n_imgs, in_channels) containing the coherence indice.
-
-    See [B. Jahne, Practical Handbook on Image Processing for Scientific and
-    Technical Applications. CRC Press, 2004.] (p. 419) for more details.
-
-    """
-    homogeneity = struct[:, :, 0]
-
-    angles = get_angles(struct)
-    nx = torch.cos(angles)
-    ny = torch.sin(angles)
-    direction = torch.stack([nx, ny], dim=-1)
-
-    eigendiff = torch.sqrt(struct[:, :, 1]**2 + struct[:, :, 2]**2)
-    coherence = eigendiff / homogeneity
-
-    return homogeneity, direction, coherence
 
 
 def directional_centers_of_mass(spectr, prefered_direction, power_ponderation=2,
@@ -466,8 +330,8 @@ def kernel_characterization(inp, spectr_size=SPECTR_SIZE, rgb=True,
     inp = inp.permute((-2, -1, 0, 1))
     inp_normalized = inp_normalized.permute((2, 3, 0, 1))
 
-    struct = structure_tensor(inp_normalized)
-    homog, arrow, coher = homogeneity_direction_coherence(struct)
+    struct = cnn_toolbox.structure_tensor(inp_normalized)
+    homog, arrow, coher = cnn_toolbox.homogeneity_direction_coherence(struct)
     spectr = fft2(inp_normalized, output_size=spectr_size)
     nu = directional_centers_of_mass(spectr, arrow, **kwargs)
     sumvals = torch.abs(torch.sum(inp_normalized, dim=(-2, -1)))
@@ -641,3 +505,67 @@ def get_index_conj(
 
 def _get_n_filters(depth):
     return 2 * 4**depth
+
+
+def assess_gaborfilters(weight, m, fftsize):
+    """
+    Compute the maximum percentage of energy of a set of convolution kernels
+    within a squared Fourier window of size (kappa x kappa), where the bandwidth
+    kappa is chosen to be equal to (pi / m). 
+
+    Parameters
+    ----------
+    weight (torch.Tensor)
+        Tensor of shape (out_channels, in_channels, height, width).
+    m (int)
+        Value characterizing the Fourier window size (kappa := pi / m). We recommend to use
+        the subsampling factor (stride) of the convolution layer.
+    fftsize (int)
+        Output size when computing the 2D FFT. The results may be more precise if
+        fftsize is large.
+
+    Returns
+    -------
+    rho (torch.Tensor)
+        Tensor of shape (out_channels,), containing the maximum percentage of energy
+        for each output channel.
+    characfreqs (torch.Tensor)
+        Tensor of shape (out_channels, 2), containing the characteristic frequencies
+        for each output channel.
+    
+    """
+    assert fftsize % (2 * m) == 0
+    kappa = fftsize // (2 * m)
+    avgwindow = torch.ones((1, 1, kappa, kappa))
+    padding = (kappa - 1) // 2
+
+    # Compute the mean kernel over the input channels
+    # Shape = (out_channels, 1, height, width)
+    avgweight = torch.mean(weight, dim=1).unsqueeze(1)
+
+    # Compute the FFT of the analytic kernels W := V + i H(V)
+    complweight_fft = cnn_toolbox.get_analytic_kernel(
+        avgweight, s=(fftsize, fftsize), fft=True
+    )
+
+    # Compute the power spectrum
+    powerspectr_fft = torch.abs(complweight_fft)**2
+    powerspectr_fft_pad = F.pad(
+        powerspectr_fft, (padding, padding + 1, padding, padding + 1), mode='circular'
+    )
+
+    # Compute the kernel's energy within a sliding Fourier window of size (kappa x kappa)
+    powerspectr_fft_window = F.conv2d(powerspectr_fft_pad, weight=avgwindow).squeeze(1)
+    powerspectr_fft_window_0 = powerspectr_fft_window.flatten(start_dim=1)
+
+    # Get the maximum energy within such a Fourier window, as well as the corresponding
+    # position in the Fourier domain (characteristic frequency)
+    maxenergy_fft_window, idx_characfreqs = torch.max(powerspectr_fft_window_0, dim=-1)
+    freqs = cnn_toolbox.get_freqs((fftsize, fftsize)) # Generate a grid of frequency coordinates
+    characfreqs = 2 * torch.pi * freqs.flatten(end_dim=1)[idx_characfreqs]
+
+    # Normalize the maximum energy with respect to the kernel's total energy
+    maxenergy_fft = torch.sum(powerspectr_fft.squeeze(1), dim=(-2, -1))
+    rho = maxenergy_fft_window / maxenergy_fft
+
+    return rho, characfreqs

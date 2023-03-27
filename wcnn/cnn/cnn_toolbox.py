@@ -490,3 +490,211 @@ def get_model_size(model):
         buffer_size += buffer.nelement() * buffer.element_size()
 
     return param_size + buffer_size
+
+
+def compute_img_gradient(inp, axis):
+    """
+    Compute the gradient of a minibatch of images by using a Sobel filter.
+
+    Parameters
+    ----------
+    inp (torch.Tensor)
+        Input tensor of shape (n_imgs, in_channels, n, m)
+    axis (int)
+        Wether to compute the gradient along the x axis (axis='x') or along the
+        y axis (axis='y')
+
+    Returns
+    -------
+    out (torch.Tensor)
+        Output gradient tensor of shape (n_imgs, in_channels, n-2, m-2)
+
+    """
+    gradient = torch.Tensor([-1, 0, 1])
+    smoothing = torch.Tensor([1, 2, 1])
+    in_channels = inp.shape[1]
+    if axis == 'x':
+        vweight = in_channels * [smoothing] # Vertical smoothing
+        hweight = in_channels * [gradient] # Horizontal gradient
+    elif axis == 'y':
+        vweight = in_channels * [gradient] # Vertical gradient
+        hweight = in_channels * [smoothing] # Horizontal smoothing
+    else:
+        raise ValueError("'axis' must be equal to 'x' or 'y'.")
+
+    vweight = torch.stack(vweight) # Tensor of shape (in_channels, 3)
+    vweight = unsqueeze_vertical_kernels(vweight)
+
+    hweight = torch.stack(hweight) # Tensor of shape (in_channels, 3)
+    hweight = unsqueeze_horizontal_kernels(hweight)
+
+    out = separable_conv2d(
+        inp, vweight, hweight, stride=1, padding=0
+    )
+
+    return out
+
+
+def structure_tensor(inp):
+    """
+    Compute the structure tensor as described in [Jahne, B. (2004). Practical
+    Handbook on Image Processing for Scientific and Technical Applications. CRC
+    Press]. The output is not exactly the structure tensor itself, but a
+    complete description of it using a 3D vector for each image and each channel:
+    [
+        J00 + J11
+        J11 - J00
+        2 J01
+    ]
+    where J denotes the 2x2 symmetric structure tensor.
+
+    Parameter
+    ---------
+    inp (torch.Tensor)
+        Input tensor of shape (n_imgs, in_channels, n, m)
+
+    Returns
+    -------
+    out (torch.Tensor)
+        Tensor structure of shape (n_imgs, in_channels, 3)
+
+    """
+    # Compute partial derivatives
+    grad_x = compute_img_gradient(inp, axis='x')
+    grad_y = compute_img_gradient(inp, axis='y')
+
+    # Compute structure tensor
+    Jxx = torch.sum(grad_x * grad_x, dim=(-2, -1))
+    Jxy = torch.sum(grad_x * grad_y, dim=(-2, -1))
+    Jyy = torch.sum(grad_y * grad_y, dim=(-2, -1))
+
+    out = torch.stack([
+        Jxx + Jyy,
+        Jyy - Jxx,
+        2 * Jxy
+    ], dim=-1)
+
+    return out
+
+
+def _get_angles(struct, convert_to_degrees=False):
+
+    tan_twotheta = struct[:, :, 2] / struct[:, :, 1]
+    pishift = (
+        torch.sign(struct[:, :, 1] + struct[:, :, 2] * tan_twotheta) + 1
+    ) / 2 # 0 or 1
+    out = (torch.atan(tan_twotheta) + pishift * torch.pi) / 2
+    if convert_to_degrees:
+        out *= 180 / torch.pi
+    return out
+
+
+def homogeneity_direction_coherence(struct):
+    """
+    Parameters
+    ----------
+    struct (torch.Tensor)
+        Tensor of shape (n_imgs, in_channels, 3), describing a bunch of structure
+        tensors. See structure_tensor for more information.
+
+    Returns
+    -------
+    homogeneity (torch.Tensor)
+        Tensor of shape (n_imgs, in_channels) indicating the homogeneity of the
+        considered images. It is equal to J00 + J11, i.e., the sum of eigenvalues
+        of the structure tensor. The smaller, the more homogeneous.
+
+    direction (torch.Tensor)
+        Tensor of shape (n_imgs, in_channels, 2) containing normalized vectors
+        indicating the main orientation of each feature map.
+
+    coherence (torch.Tensor)
+        Tensor of shape (n_imgs, in_channels) containing the coherence indice.
+
+    See [B. Jahne, Practical Handbook on Image Processing for Scientific and
+    Technical Applications. CRC Press, 2004.] (p. 419) for more details.
+
+    """
+    homogeneity = struct[:, :, 0]
+
+    angles = _get_angles(struct)
+    nx = torch.cos(angles)
+    ny = torch.sin(angles)
+    direction = torch.stack([nx, ny], dim=-1)
+
+    eigendiff = torch.sqrt(struct[:, :, 1]**2 + struct[:, :, 2]**2)
+    coherence = eigendiff / homogeneity
+
+    return homogeneity, direction, coherence
+
+
+def get_freqs(s):
+    """
+    Generate a grid of frequency coordinates.
+
+    """
+    s1, s2 = s
+    freqs_1d_x = torch.fft.fftfreq(s2)
+    freqs_1d_y = -torch.fft.fftfreq(s1)
+    freqs_x, freqs_y = torch.meshgrid(freqs_1d_x, freqs_1d_y, indexing='xy')
+    freqs = torch.stack([freqs_x, freqs_y], dim=-1)
+
+    return freqs
+
+
+def get_analytic_kernel(weight, s=None, fft=False):
+    """
+    Compute the 2D Hilbert transform of real-valued filters, and return complex filters
+    whose energy is located in one half of the Fourier domain.
+
+    Parameters
+    ----------
+    weight (torch.Tensor)
+        PyTorch tensor of shape (out_channels, in_channels, height, width), containing
+        out_channels * in_channels convolution kernels.
+    s (tuple, default=None)
+        Signal size in the transformed dimensions, when calling torch.fft.fft2
+    fft (bool, default=True)
+        Whether to return the complex-valued filters in the Fourier domain. If set to False,
+        then spatial filters (cropped to the input shape) are returned.
+
+    Returns
+    -------
+    out (torch.Tensor)
+        Complex tensor of shape (out_channels, in_channels, height, width) is spatial=True,
+        (out_channels, in_channels, height_fft, width_fft) otherwise.
+    
+    """
+    _, in_channels, height, width = weight.shape
+    if s is None:
+        s = (height, width)
+
+    # Compute the mean value over the input channels, to get the main orientation
+    avgweight = torch.mean(weight, dim=1).unsqueeze(1)
+
+    # Compute eigenvalues of the tensor structure
+    struct = structure_tensor(avgweight)
+
+    # Estimate the principal orientation of each filter
+    _, maindir, _ = homogeneity_direction_coherence(struct)
+
+    # Generate a grid of frequency coordinates
+    freqs = get_freqs(s)
+
+    # Compute inner products between frequency vectors and main orientation
+    innerprods = torch.inner(maindir, freqs)
+
+    # Mask to compute the complex-valued kernels: half of the Fourier domain is set to 0
+    mask_fft = 2. * (innerprods >= 0)
+    mask_fft = mask_fft.repeat(1, in_channels, 1, 1)
+
+    # Compute the FFT of the real-valued filters and deduce the FFT of the complex filters
+    weight_fft = torch.fft.fft2(weight, s=s)
+    complweight_fft = mask_fft * weight_fft
+
+    if not fft:
+        out = torch.fft.ifft2(complweight_fft)[:, :, :height, :width]
+    else:
+        out = complweight_fft
+
+    return out

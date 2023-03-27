@@ -550,18 +550,16 @@ def scatter_centergrid(inps, color=None, markers=None, markersizes=None, figsize
         zorders=zorders, **kwargs
     )
 
-    plt.figure(figsize=figsize)
+    _, ax = plt.subplots(figsize=figsize)
 
     max_xtick = xmax
     max_ytick = ymax
-    if symmetric:
-        plt.xlim((-xmax, xmax))
-        plt.xticks(np.linspace(-max_xtick, max_xtick, 5))
-    else:
-        plt.xlim((0, xmax))
-        plt.xticks(np.linspace(0, max_xtick, 3))
+    ax.set_xlim(-xmax, xmax)
+    ax.set_xticks(np.linspace(-max_xtick, max_xtick, 5))
     plt.ylim((-ymax, ymax))
     plt.yticks(np.linspace(-max_ytick, max_ytick, 5))
+    ax.set_ylim(-ymax, ymax)
+    ax.set_yticks(np.linspace(-max_ytick, max_ytick, 5))
 
     if xlabel is not None:
         plt.xlabel(xlabel)
@@ -573,7 +571,10 @@ def scatter_centergrid(inps, color=None, markers=None, markersizes=None, figsize
     plt.axvline(x=0, color='k')
 
     for inp, label, kwargs_scatter in zip(inps, labels, list_of_kwargs):
-        out = plt.scatter(inp[:, 0], inp[:, 1], label=label, **kwargs_scatter)
+        markersize = kwargs_scatter.pop("markersize", None)
+        if markersize is not None:
+            kwargs_scatter["s"] = markersize
+        out = ax.scatter(inp[:, 0], inp[:, 1], label=label, **kwargs_scatter)
 
     # Chart layout
     kwargs_legend = {}
@@ -584,7 +585,7 @@ def scatter_centergrid(inps, color=None, markers=None, markersizes=None, figsize
     if title is not None:
         plt.title(title, size=fontsize_title)
 
-    return out
+    return out, ax
 
 
 def _init_kwargs(
@@ -625,47 +626,50 @@ def _init_kwargs(
 LIST_OF_KWARGS_KERCHARAC = ['spectr_size', 'rgb']
 
 def scatter_characfreqs(
-        list_of_inputs, list_of_idx=None, max_normsum=None, min_coherence=None,
-        s=80, xlabel=r"$\xi_1$", ylabel=r"$\xi_2$", xmax=np.pi, ymax=np.pi,
+        list_of_coords=None, list_of_inputs=None, max_normsum=None,
+        min_coherence=None, s=80, xlabel=r"$\theta_x$", ylabel=r"$\theta_y$",
         selection=None, discrepancies=None, **kwargs
 ):
+    """
+    Arguments
+    ---------
+    list_of_coords (list of array-like, default=None)
+        List of characteristic frequencies.
+    list_of_inputs (list of torch.tensor, default=None)
+        List of convolution kernels. Must be provided if list_of_coords is None.
+
+    """
     if not isinstance(list_of_inputs, list):
         list_of_inputs = [list_of_inputs]
-        list_of_idx = [list_of_idx]
-    n_inps = len(list_of_inputs)
-    if list_of_idx is not None:
-        assert len(list_of_idx) == n_inps
-    else:
-        list_of_idx = n_inps * [None]
     kwargs_kercharac = toolbox.extract_dict(LIST_OF_KWARGS_KERCHARAC, kwargs)
-    list_of_coords = []
-    for inp, idx in zip(list_of_inputs, list_of_idx):
-        if not isinstance(inp, pd.DataFrame):
-            inp = plots_toolbox.kernel_characterization(
-                inp, return_dataframe=True, **kwargs_kercharac
+
+    if list_of_coords is None:
+        list_of_coords = []
+        for inp in list_of_inputs:
+            if not isinstance(inp, pd.DataFrame):
+                inp = plots_toolbox.kernel_characterization(
+                    inp, return_dataframe=True, **kwargs_kercharac
+                )
+            if max_normsum is not None:
+                # remove low-pass filters
+                inp = inp[
+                    inp['norm_sum'] < max_normsum
+                ]
+            if min_coherence is not None:
+                # remove filters with poorly-defined orientation
+                inp = inp[
+                    inp['coherence'] >= min_coherence
+                ]
+            list_of_coords.append(
+                inp[['freq_x', 'freq_y']].to_numpy()
             )
-        if idx is not None:
-            inp = inp.iloc[idx]
-        if max_normsum is not None:
-            # remove low-pass filters
-            inp = inp[
-                inp['norm_sum'] < max_normsum
-            ]
-        if min_coherence is not None:
-            # remove filters with poorly-defined orientation
-            inp = inp[
-                inp['coherence'] >= min_coherence
-            ]
-        list_of_coords.append(
-            inp[['freq_x', 'freq_y']].to_numpy()
-        )
 
     if len(list_of_coords) == 1:
         list_of_coords = list_of_coords[0]
 
-    out = scatter_centergrid(
-        list_of_coords, s=s, xlabel=xlabel, ylabel=ylabel, xmax=xmax, ymax=ymax,
-        selection=selection, **kwargs
+    out, ax = scatter_centergrid(
+        list_of_coords, s=s, xlabel=xlabel, ylabel=ylabel, selection=selection,
+        **kwargs
     )
 
     # If required, display discrepancies between max pooling and modulus
@@ -676,9 +680,13 @@ def scatter_characfreqs(
             discrepancies, cmap=cmap, origin='lower',
             extent=(-np.pi, np.pi, -np.pi, np.pi), vmax=1., alpha=.6
         )
-        plt.colorbar(im, shrink=0.9)
+        plt.colorbar(im, shrink=0.8)
 
-    return out
+    tickslabels = [r"$-\pi$", r"$-\pi / 2$", r"$0$", r"$\pi / 2$", r"$\pi$"]
+    ax.set_xticklabels(tickslabels)
+    ax.set_yticklabels(tickslabels)
+
+    return out, ax
 
 
 def plot_2d(
@@ -793,3 +801,21 @@ def plot_grads(classifs, list_of_out_channels, j, idx=None, **kwargs):
     plt.title("Evolution of the gradient at scale {}".format(j))
 
     return out
+
+
+def plot_1d_lkdiv(list_of_x, list_of_vals, labels, list_of_idx=None, **kwargs):
+
+    if list_of_idx is not None:
+        list_of_x = [list_of_x[i] for i in list_of_idx]
+        list_of_vals = [list_of_vals[i] for i in list_of_idx]
+        labels = [labels[i] for i in list_of_idx]
+        for key, val in kwargs.items():
+            if isinstance(val, list):
+                kwargs[key] = [val[i] for i in list_of_idx]
+
+    out, ax = plot_data(
+        list_of_x, list_of_vals, labels, aggr=1, ylabel="KL divergence",
+        **kwargs
+    )
+
+    return out, ax
