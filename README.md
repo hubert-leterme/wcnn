@@ -1,6 +1,6 @@
 # <b>WCNN</b>
 
-**From CNNs to Shift-Invariant Twin Models Based on Complex Wavelets** ([arXiv:2212.00394](https://arxiv.org/abs/2212.00394))
+**From CNNs to Shift-Invariant Twin Models Based on Complex Wavelets** (32nd European Signal Processing Conference (EUSIPCO), 2024)
 
 *Hubert Leterme, Kévin Polisano, Valérie Perrier, Karteek Alahari*
 
