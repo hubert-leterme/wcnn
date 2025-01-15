@@ -1,10 +1,12 @@
 # <b>WCNN</b>
 
-**From CNNs to Shift-Invariant Twin Models Based on Complex Wavelets** (32nd European Signal Processing Conference (EUSIPCO), 2024)
+**From CNNs to Shift-Invariant Twin Models Based on Complex Wavelets**
 
 *Hubert Leterme, Kévin Polisano, Valérie Perrier, Karteek Alahari*
 
 <sub>Univ. Grenoble Alpes, CNRS, Inria, Grenoble INP, LJK, 38000 Grenoble, France</sub>
+
+32nd European Signal Processing Conference (EUSIPCO), 2024
 
 This Python package provides a comprehensive framework for reproducing the experiments detailed in the paper.
 
