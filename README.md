@@ -6,6 +6,8 @@
 
 <sub>Univ. Grenoble Alpes, CNRS, Inria, Grenoble INP, LJK, 38000 Grenoble, France</sub>
 
+This Python package provides a comprehensive framework for reproducing the experiments detailed in the paper.
+
 ## Requirements and Settings
 
 You can create a conda environment to reproduce our results in similar conditions.
